@@ -1,11 +1,4 @@
 images:
-  - name: nginx
-    tag: latest
-    aliyun: tabll-mirror/nginx
-  - name: redis
-    tag: latest
-    tencent: tabll-mirror/redis
-  - name: mysql
-    tag: 8.4.0
-    aliyun: tabll-mirror/mysql
-    tencent: tabll-mirror/mysql
+  - name: bitnami/valkey-cluster
+    tag: 7.2.6-debian-12-r3
+    tencent: component-ns/valkey-cluster

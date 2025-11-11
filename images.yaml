@@ -2,9 +2,3 @@ images:
   - name: bitnamilegacy/valkey-cluster
     tag: 7.2.6-debian-12-r3
     tencent: component-ns/valkey-cluster
-#  - name: bitnamilegacy/valkey
-#    tag: 7.2.6-debian-12-r3
-#    tencent: component-ns/valkey
-#  - name: bitnamilegacy/valkey-sentinel
-#    tag: 7.2.6-debian-12-r3
-#    tencent: component-ns/valkey-sentinel

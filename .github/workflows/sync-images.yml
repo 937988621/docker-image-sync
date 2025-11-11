@@ -11,15 +11,16 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Docker
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -29,18 +30,29 @@ jobs:
 
       - name: Pull and tag images
         run: |
-          yq eval '.images[] | .name + ":" + .tag + " " + (.aliyun // "") + " " + (.tencent // "")' images.yaml | while read name tag aliyun tencent; do
-            docker pull $name
+          echo "=== Pulling and tagging images ==="
+          yq eval -o=j '.images[]' images.yaml | while read -r image; do
+            name=$(echo "$image" | yq '.name')
+            tag=$(echo "$image" | yq '.tag')
+            aliyun=$(echo "$image" | yq '.aliyun // ""')
+            tencent=$(echo "$image" | yq '.tencent // ""')
 
-            if [ -n "$aliyun" ]; then
-              docker tag $name registry.aliyuncs.com/$aliyun
+            echo "→ Processing $name:$tag"
+            docker pull "$name:$tag"
+
+            if [ -n "$aliyun" ] && [ "$aliyun" != "null" ]; then
+              echo "  ↳ Tagging for Aliyun: registry.aliyuncs.com/$aliyun"
+              docker tag "$name:$tag" "registry.aliyuncs.com/$aliyun"
             fi
-            if [ -n "$tencent" ]; then
-              docker tag $name ccr.ccs.tencentyun.com/$tencent
+
+            if [ -n "$tencent" ] && [ "$tencent" != "null" ]; then
+              echo "  ↳ Tagging for Tencent: ccr.ccs.tencentyun.com/$tencent"
+              docker tag "$name:$tag" "ccr.ccs.tencentyun.com/$tencent"
             fi
           done
 
       - name: Log in to Aliyun Docker Registry
+        if: ${{ secrets.ALIYUN_USERNAME != '' && secrets.ALIYUN_PASSWORD != '' }}
         uses: docker/login-action@v3
         with:
           registry: registry.aliyuncs.com
@@ -48,19 +60,33 @@ jobs:
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
       - name: Log in to Tencent Docker Registry
+        if: ${{ secrets.TENCENT_USERNAME != '' && secrets.TENCENT_PASSWORD != '' }}
         uses: docker/login-action@v3
         with:
           registry: ccr.ccs.tencentyun.com
           username: ${{ secrets.TENCENT_USERNAME }}
           password: ${{ secrets.TENCENT_PASSWORD }}
 
-      - name: Push images to Aliyun and Tencent
+      - name: Push images
         run: |
-          yq eval '.images[] | .name + ":" + .tag + " " + (.aliyun // "") + " " + (.tencent // "")' images.yaml | while read name tag aliyun tencent; do
-            if [ -n "$aliyun" ]; then
-              docker push registry.aliyuncs.com/$aliyun
+          echo "=== Pushing tagged images ==="
+          yq eval -o=j '.images[]' images.yaml | while read -r image; do
+            name=$(echo "$image" | yq '.name')
+            tag=$(echo "$image" | yq '.tag')
+            aliyun=$(echo "$image" | yq '.aliyun // ""')
+            tencent=$(echo "$image" | yq '.tencent // ""')
+
+            if [ -n "$aliyun" ] && [ "$aliyun" != "null" ] && [ -n "${{ secrets.ALIYUN_USERNAME }}" ]; then
+              echo "→ Pushing to Aliyun: registry.aliyuncs.com/$aliyun"
+              docker push "registry.aliyuncs.com/$aliyun"
+            else
+              echo "→ Skipping Aliyun push for $name:$tag"
             fi
-            if [ -n "$tencent" ]; then
-              docker push ccr.ccs.tencentyun.com/$tencent
+
+            if [ -n "$tencent" ] && [ "$tencent" != "null" ] && [ -n "${{ secrets.TENCENT_USERNAME }}" ]; then
+              echo "→ Pushing to Tencent: ccr.ccs.tencentyun.com/$tencent"
+              docker push "ccr.ccs.tencentyun.com/$tencent"
+            else
+              echo "→ Skipping Tencent push for $name:$tag"
             fi
           done
